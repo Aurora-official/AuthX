@@ -10,6 +10,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -33,6 +34,9 @@ public class AuthX extends JavaPlugin implements Listener {
             getDataFolder().mkdir();
         }
 
+        getConfig().options().copyDefaults(true);
+        saveDefaultConfig();
+
         if (!dataFile.exists()) {
             try {
                 dataFile.createNewFile();
@@ -52,10 +56,23 @@ public class AuthX extends JavaPlugin implements Listener {
         getLogger().info("AuthX is disable");
     }
 
+//    @EventHandler
+//    public void onPlayerJoin(PlayerJoinEvent event) {
+//        Player player = event.getPlayer();
+//        if (!verifiedPlayers.containsKey(player.getName())) {
+//            verifiedPlayers.put(player.getName(), false);
+//            player.sendMessage(ChatColor.YELLOW + "请使用 /authx setup 命令生成您的密钥");
+//            player.sendMessage(ChatColor.YELLOW + "请使用 /authx verify <code> 命令生成/验证您的TOTP");
+//        }
+//    }
+
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        if (!verifiedPlayers.containsKey(player.getName())) {
+
+        boolean forceTotpOnEveryLogin = getConfig().getBoolean("force-totp-on-every-login");
+
+        if (forceTotpOnEveryLogin || !verifiedPlayers.containsKey(player.getName())) {
             verifiedPlayers.put(player.getName(), false);
             player.sendMessage(ChatColor.YELLOW + "请使用 /authx setup 命令生成您的密钥");
             player.sendMessage(ChatColor.YELLOW + "请使用 /authx verify <code> 命令生成/验证您的TOTP");
@@ -71,6 +88,17 @@ public class AuthX extends JavaPlugin implements Listener {
         }
     }
 
+    @EventHandler
+    public void onPlayerDamage(EntityDamageEvent event) {
+        if (event.getEntity() instanceof Player) {
+            Player player = (Player) event.getEntity();
+
+            if (!verifiedPlayers.getOrDefault(player.getName(), false)) {
+                event.setCancelled(true);
+            }
+        }
+    }
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player) {
@@ -78,7 +106,17 @@ public class AuthX extends JavaPlugin implements Listener {
 
             if (command.getName().equalsIgnoreCase("authx")) {
                 if (args.length == 0) {
-                    player.sendMessage(ChatColor.RED + "Usage: /authx <setup | verify>");
+                    player.sendMessage(ChatColor.RED + "Usage: /authx <setup | verify | reload>");
+                    return true;
+                }
+
+                if (args[0].equalsIgnoreCase("reload")) {
+                    if (player.isOp()) {
+                        reloadConfig();
+                        player.sendMessage(ChatColor.GREEN + "已重载插件配置");
+                    } else {
+                        player.sendMessage(ChatColor.RED + "你没有执行该命令的权限");
+                    }
                     return true;
                 }
 
