@@ -29,6 +29,18 @@ public class AuthX extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+        if (!getDataFolder().exists()) {
+            getDataFolder().mkdir();
+        }
+
+        if (!dataFile.exists()) {
+            try {
+                dataFile.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
         getServer().getPluginManager().registerEvents(this, this);
         loadPlayerData();
         getLogger().info("AuthX is enable");
@@ -45,7 +57,8 @@ public class AuthX extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         if (!verifiedPlayers.containsKey(player.getName())) {
             verifiedPlayers.put(player.getName(), false);
-            player.sendMessage(ChatColor.YELLOW + "请使用 /totp verify <setup|code> 命令生成/验证您的TOTP");
+            player.sendMessage(ChatColor.YELLOW + "请使用 /authx setup 命令生成您的密钥");
+            player.sendMessage(ChatColor.YELLOW + "请使用 /authx verify <code> 命令生成/验证您的TOTP");
         }
     }
 
@@ -63,9 +76,9 @@ public class AuthX extends JavaPlugin implements Listener {
         if (sender instanceof Player) {
             Player player = (Player) sender;
 
-            if (command.getName().equalsIgnoreCase("totp")) {
+            if (command.getName().equalsIgnoreCase("authx")) {
                 if (args.length == 0) {
-                    player.sendMessage(ChatColor.RED + "Usage: /totp <setup|verify>");
+                    player.sendMessage(ChatColor.RED + "Usage: /authx <setup | verify>");
                     return true;
                 }
 
@@ -77,13 +90,13 @@ public class AuthX extends JavaPlugin implements Listener {
                     player.sendMessage(ChatColor.GREEN + "请将密钥输入进您的TOTP应用以获取一次性密码");
                 } else if (args[0].equalsIgnoreCase("verify")) {
                     if (args.length < 2) {
-                        player.sendMessage(ChatColor.RED + "Usage: /totp verify <code>");
+                        player.sendMessage(ChatColor.RED + "Usage: /authx verify <code>");
                         return true;
                     }
 
                     GoogleAuthenticatorKey key = playerKeys.get(player.getName());
                     if (key == null) {
-                        player.sendMessage(ChatColor.RED + "您还没有生成密钥，请使用 /totp setup 生成密钥");
+                        player.sendMessage(ChatColor.RED + "您还没有生成密钥，请使用 /authx setup 生成密钥");
                         return true;
                     }
 
@@ -123,6 +136,22 @@ public class AuthX extends JavaPlugin implements Listener {
         }
     }
 
+//    private Map<String, PlayerData> loadPlayerData() {
+//        if (!dataFile.exists()) {
+//            return new HashMap<>();
+//        }
+//
+//        try (Reader reader = new FileReader(dataFile)) {
+//            Type type = new TypeToken<Map<String, PlayerData>>() {}.getType();
+//            Map<String, PlayerData> playerDataMap = gson.fromJson(reader, type);
+//            playerDataMap.forEach((name, data) -> playerKeys.put(name, new GoogleAuthenticatorKey.Builder(data.getKey()).build()));
+//            return playerDataMap;
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//            return new HashMap<>();
+//        }
+//    }
+
     private Map<String, PlayerData> loadPlayerData() {
         if (!dataFile.exists()) {
             return new HashMap<>();
@@ -131,6 +160,11 @@ public class AuthX extends JavaPlugin implements Listener {
         try (Reader reader = new FileReader(dataFile)) {
             Type type = new TypeToken<Map<String, PlayerData>>() {}.getType();
             Map<String, PlayerData> playerDataMap = gson.fromJson(reader, type);
+
+            if (playerDataMap == null) {
+                playerDataMap = new HashMap<>();
+            }
+
             playerDataMap.forEach((name, data) -> playerKeys.put(name, new GoogleAuthenticatorKey.Builder(data.getKey()).build()));
             return playerDataMap;
         } catch (IOException e) {
