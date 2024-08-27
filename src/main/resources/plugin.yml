@@ -1,0 +1,9 @@
+name: AuthX
+version: '${project.version}'
+main: io.aurora.AuthX
+api-version: '1.19'
+
+commands:
+  totp:
+    description: Setup and verify TOTP for your account
+    usage: /<command> <setup|verify>
