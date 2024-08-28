@@ -6,4 +6,4 @@ api-version: '1.19'
 commands:
   authx:
     description: Setup and verify TOTP for your account
-    usage: /authx <setup | verify>
+    usage: /authx <setup | verify | reload>

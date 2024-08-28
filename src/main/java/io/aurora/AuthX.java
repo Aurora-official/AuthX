@@ -7,6 +7,8 @@ import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -27,6 +29,7 @@ public class AuthX extends JavaPlugin implements Listener {
     private final GoogleAuthenticator gAuth = new GoogleAuthenticator();
     private final Gson gson = new Gson();
     private final File dataFile = new File(getDataFolder(), "players.json");
+    private FileConfiguration messages;
 
     @Override
     public void onEnable() {
@@ -36,6 +39,7 @@ public class AuthX extends JavaPlugin implements Listener {
 
         getConfig().options().copyDefaults(true);
         saveDefaultConfig();
+        loadMessages();
 
         if (!dataFile.exists()) {
             try {
@@ -47,13 +51,13 @@ public class AuthX extends JavaPlugin implements Listener {
 
         getServer().getPluginManager().registerEvents(this, this);
         loadPlayerData();
-        getLogger().info("AuthX is enable");
+        getLogger().info(getMessage("enable-message"));
     }
 
     @Override
     public void onDisable() {
         savePlayerData();
-        getLogger().info("AuthX is disable");
+        getLogger().info(getMessage("disable-message"));
     }
 
 //    @EventHandler
@@ -74,8 +78,8 @@ public class AuthX extends JavaPlugin implements Listener {
 
         if (forceTotpOnEveryLogin || !verifiedPlayers.containsKey(player.getName())) {
             verifiedPlayers.put(player.getName(), false);
-            player.sendMessage(ChatColor.YELLOW + "请使用 /authx setup 命令生成您的密钥");
-            player.sendMessage(ChatColor.YELLOW + "请使用 /authx verify <code> 命令生成/验证您的TOTP");
+            player.sendMessage(ChatColor.YELLOW + getMessage("setup-totp"));
+            player.sendMessage(ChatColor.YELLOW + getMessage("verify-totp"));
         }
     }
 
@@ -84,7 +88,7 @@ public class AuthX extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         if (!verifiedPlayers.getOrDefault(player.getName(), false)) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "在您移动之前您必须验证您的TOTP");
+            player.sendMessage(ChatColor.RED + getMessage("move-message"));
         }
     }
 
@@ -113,9 +117,9 @@ public class AuthX extends JavaPlugin implements Listener {
                 if (args[0].equalsIgnoreCase("reload")) {
                     if (player.isOp()) {
                         reloadConfig();
-                        player.sendMessage(ChatColor.GREEN + "已重载插件配置");
+                        player.sendMessage(ChatColor.GREEN + getMessage("config-reload"));
                     } else {
-                        player.sendMessage(ChatColor.RED + "你没有执行该命令的权限");
+                        player.sendMessage(ChatColor.RED + getMessage("no-permission"));
                     }
                     return true;
                 }
@@ -124,8 +128,8 @@ public class AuthX extends JavaPlugin implements Listener {
                     GoogleAuthenticatorKey key = gAuth.createCredentials();
                     playerKeys.put(player.getName(), key);
                     savePlayerKey(player.getName(), key.getKey());
-                    player.sendMessage(ChatColor.GREEN + "您的TOTP密钥是: " + key.getKey());
-                    player.sendMessage(ChatColor.GREEN + "请将密钥输入进您的TOTP应用以获取一次性密码");
+                    player.sendMessage(ChatColor.GREEN + getMessage("setup-message") + key.getKey());
+                    player.sendMessage(ChatColor.GREEN + getMessage("get-totp-key"));
                 } else if (args[0].equalsIgnoreCase("verify")) {
                     if (args.length < 2) {
                         player.sendMessage(ChatColor.RED + "Usage: /authx verify <code>");
@@ -134,7 +138,7 @@ public class AuthX extends JavaPlugin implements Listener {
 
                     GoogleAuthenticatorKey key = playerKeys.get(player.getName());
                     if (key == null) {
-                        player.sendMessage(ChatColor.RED + "您还没有生成密钥，请使用 /authx setup 生成密钥");
+                        player.sendMessage(ChatColor.RED + getMessage("no-setup-key"));
                         return true;
                     }
 
@@ -142,16 +146,16 @@ public class AuthX extends JavaPlugin implements Listener {
                     try {
                         code = Integer.parseInt(args[1]);
                     } catch (NumberFormatException e) {
-                        player.sendMessage(ChatColor.RED + "一次性密码格式不正确，它应该是数字");
+                        player.sendMessage(ChatColor.RED + getMessage("code-format"));
                         return true;
                     }
 
                     boolean isCodeValid = gAuth.authorize(key.getKey(), code);
                     if (isCodeValid) {
                         verifiedPlayers.put(player.getName(), true);
-                        player.sendMessage(ChatColor.GREEN + "您的TOTP验证成功，现在可以移动了");
+                        player.sendMessage(ChatColor.GREEN + getMessage("verify-successful"));
                     } else {
-                        player.sendMessage(ChatColor.RED + "TOTP代码无效，请重试");
+                        player.sendMessage(ChatColor.RED + getMessage("try-again"));
                     }
                 }
                 return true;
@@ -219,5 +223,20 @@ public class AuthX extends JavaPlugin implements Listener {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void loadMessages() {
+        String language = getConfig().getString("language", "en");
+        File messagesFile = new File(getDataFolder(), "messages_" + language + ".yml");
+
+        if (!messagesFile.exists()) {
+            saveResource("messages_" + language + ".yml", false);
+        }
+
+        messages = YamlConfiguration.loadConfiguration(messagesFile);
+    }
+
+    public String getMessage(String key) {
+        return messages.getString(key, "Message not found: " + key);
     }
 }

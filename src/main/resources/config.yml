@@ -1,2 +1,5 @@
 # 是否在每次玩家登录时强制要求 TOTP 验证
 force-totp-on-every-login: true
+
+# 语言设置，支持 'en' 和 'zh'
+language: 'en'
