@@ -1,2 +1,2 @@
 ### AuthX
-a totp login plugin
+a totp login plugin.
